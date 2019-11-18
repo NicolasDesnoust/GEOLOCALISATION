@@ -1,0 +1,411 @@
+<!--
+--
+--  Author : DESNOUST Nicolas
+--
+-->
+
+<!doctype html>
+<html lang="fr">
+<head>
+    <!-- Required meta tags -->
+    <meta http-equiv="Content-type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <title>Géolocalisation FDF</title>
+
+    <!-- leaflet -->
+    <link rel="stylesheet" href="ressources/leaflet/leaflet.css"/>
+    <script src="ressources/leaflet/leaflet.js"></script>
+
+    <!-- JQuery -->
+    <link href = "https://code.jquery.com/ui/1.10.4/themes/ui-lightness/jquery-ui.css" rel = "stylesheet">
+    <script src = "https://code.jquery.com/jquery-1.10.2.js"></script>
+    <script src = "https://code.jquery.com/ui/1.10.4/jquery-ui.js"></script>
+
+    <!-- Bootstrap -->
+    <link rel="stylesheet" href="ressources/bootstrap/css/bootstrap.min.css">
+    <script src="ressources/bootstrap/js/bootstrap.min.js"></script>
+
+    <!-- cluster plug-in -->
+    <link rel="stylesheet" href="ressources/markercluster/dist/MarkerCluster.css">
+    <link rel="stylesheet" href="ressources/markercluster/dist/MarkerCluster.Default.css">
+    <script src="ressources/markercluster/dist/leaflet.markercluster.js"></script>
+
+    <!-- Sauvegarde de fichiers -->
+    <script src="ressources/FileSaver.js-master/src/FileSaver.js"></script>
+
+    <!-- Feuille de style -->
+    <link rel="stylesheet" href="ressources/css/ownStyle.css">
+
+    <style>
+        .custom-file-input ~ .custom-file-label::after {
+            content: "Chercher";
+        }
+
+        .ui-autocomplete {
+            position:absolute;
+            cursor:default;
+            z-index:9999 !important
+        }
+
+        .popupStyle ::-webkit-scrollbar {
+                width: 15px;
+        }
+        /* Track */
+        .popupStyle ::-webkit-scrollbar-track {
+          background: #f1f1f1; 
+        }
+        /* Handle */
+        .popupStyle ::-webkit-scrollbar-thumb {
+          background: #888; 
+        }
+        /* Handle on hover */
+        .popupStyle ::-webkit-scrollbar-thumb:hover {
+          background: #555; 
+        }
+    </style>
+
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+    <a class="navbar-brand" href="javascript:void(0)">Fondation de France</a>
+    <button class="navbar-toggler navbar-toggler-right" type="button" data-toggle="collapse" data-target="#navb">
+        <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navb">
+        <ul class="navbar-nav mr-auto">
+
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" id="navbardrop" data-toggle="dropdown">
+                    Fichiers
+                </a>
+                <div class="dropdown-menu">
+                    <a class="dropdown-item" href="#" data-toggle="modal" data-target="#importModal">Importer</a>
+                    <a class="dropdown-item" href="#" data-toggle="modal" data-target="#exportModal">Exporter</a>
+                    <a class="dropdown-item" href="#" data-toggle="modal" data-target="#deleteModal">Tout supprimer</a>
+                </div>
+            </li>
+
+            <li class="nav-item">
+                <a class="nav-link" href="#" data-toggle="modal" data-target="#filtersModal">Filtres</a>
+            </li>
+
+        </ul>
+        <form id="searchForm" class="form-inline my-2 my-lg-0">
+            <input type="hidden" id="filtersOn" name="filtersOn" value="false">
+            <input name="postalCode" id="postalCode" class="form-control mr-sm-2" type="text" placeholder="Entrez un code postal">
+            <input name="time" id="time" class="form-control mr-sm-2" type="text" placeholder="Entrez un temps en min">
+            <button id="searchButton" class="btn btn-success my-2 my-sm-0" type="button">Chercher</button>
+        </form>
+
+
+    </div>
+</nav>
+
+<!-- Prévention au cas où l'usage de scripts est désactivé -->
+<noscript>Pour utiliser ce site, merci d'activer JavaScript.</noscript>
+
+<!-- affichage carte -->
+<div id="mapid"></div>
+
+<!-- Debut Modal Import -->
+<div class="modal fade" id="importModal">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+
+            <!-- Modal Header -->
+            <div class="modal-header">
+                <h4 class="modal-title">Importer un fichier csv</h4>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+
+            <!-- Modal body -->
+            <div class="modal-body">
+
+                <!-- formulaire d'import fichier csv -->
+                <form id="importForm" method="post" enctype="multipart/form-data">
+                    <div class="row">
+                        <div class="col">
+                            <div class="custom-file">
+                                <input type="file" class="custom-file-input" id="customFile" accept=".csv" name="customFile">
+                                <label class="custom-file-label" for="customFile">Veuillez choisir un fichier</label>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- info -->
+	                <div id="fileMissingAlert" class="alert alert-warning">
+	                    <strong>Attention.</strong> Veuillez sélectionner un fichier ci-dessus avant d'importer.
+	                </div>
+                    <div class="row" style="margin-top: 15px;">
+                        <div class="col">
+                            <input type="text" class="form-control" id="cpColumnName" placeholder="Colonne des codes postaux" name="cpColumnName" required>
+                        </div>
+                    </div>
+                    <div class="row" style="margin-top: 15px;">
+                        <div class="col">
+                            <input type="text" class="form-control" id="separator" placeholder="Séparateur ( , par défaut )" name="cpColumnName" required>
+                        </div>
+                    </div>
+                </form>
+
+                <br />
+
+                <!-- info -->
+                <div class="alert alert-info">
+                    <strong>Format à respecter.</strong> La première ligne du fichier doit contenir les noms des colonnes, dont la
+                    colonne des numéros des clients <strong>NUMCLI</strong> et des codes-postaux.
+                </div>
+
+            </div>
+
+            <!-- Modal footer -->
+            <div class="modal-footer">
+                <button type="button" id="importButton" class="btn btn-primary">Importer</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Quitter</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+<!-- Fin Modal Import -->
+
+<!-- Debut Modal Suppression -->
+<div class="modal fade" id="deleteModal">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+
+            <!-- Modal Header -->
+            <div class="modal-header">
+                <h4 class="modal-title">Suppression des marqueurs</h4>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+
+            <!-- Modal body -->
+            <div class="modal-body">
+                <p>Êtes-vous sûr de vouloir supprimer tous les marqueurs ?</p>
+                <div class="alert alert-warning">
+                    <strong>Attention!</strong> Cette action est <strong>irréversible</strong>.
+                </div>
+            </div>
+
+            <!-- Modal footer -->
+            <div class="modal-footer">
+                <button type="button" id="deleteButton" class="btn btn-danger" data-dismiss="modal">Supprimer</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Quitter</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+<!-- Fin Modal Suppression -->
+
+<!-- Debut Modal Filtres -->
+<div class="modal fade" id="filtersModal">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+
+            <!-- Modal Header -->
+            <div class="modal-header">
+                <h4 class="modal-title">Table des filtres</h4>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+
+            <!-- Modal body -->
+            <div class="modal-body">
+
+                <ul class="nav nav-tabs" role="tablist" id="navTab">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#filtersTable">Gestion des filtres</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#addFilter">Ajout de filtre</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#addConstraint">Ajout de contrainte</a>
+                    </li>
+                </ul>
+
+                <div class="tab-content" style="margin-top: 15px;">
+                    <div id="filtersTable" class = "container tab-pane active">
+                        <table class="table table-striped">
+                            <tbody id ="filterMatrixBody"></tbody>
+                        </table>
+                    </div>
+
+                    <div id="addFilter" class="container tab-pane fade">
+                        <form id="filtersForm">
+                            <div class="row">
+                                <div class="col">
+                                    <select id="columnNames1" class="custom-select columnNames" name="columnNames" size="1" class="form-control">
+                                        <option class="defaultOption" selected value="base">Veuillez choisir un filtre</option>
+                                    </select>
+                                </div>
+                                <div class="col">
+                                    <select id="operators1" class="custom-select operators" name="operators">
+                                        <option class="defaultOption" selected value="base">Veuillez choisir un filtre</option>
+                                    </select>
+                                </div>
+                                <div class="col" id="inputContainer1">
+                                    <input id="inputFilter1" class="form-control inputFilter" type="text" name="inputFilter" required>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div id="addConstraint" class="container tab-pane fade">
+                        <form id="ConstraintsForm">
+                            <div class="row">
+                                <div class="col">
+                                    <select id="columnNames2" class="custom-select columnNames" name="columnNames" size="1" class="form-control" style="margin-outside: 0px;">
+                                        <option class="defaultOption" selected value="base">Veuillez choisir un filtre</option>
+                                    </select>
+                                </div>
+                                <div class="col">
+                                    <select id="operators2" class="custom-select operators" name="operators">
+                                        <option class="defaultOption" selected value="base">Veuillez choisir un filtre</option>
+                                    </select>
+                                </div>
+                                <div class="col" id="inputContainer2">
+                                    <input id="inputFilter2" class="inputFilter form-control" type="text" name="inputFilter" required>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal footer -->
+            <div class="modal-footer" style="margin-top: 15px;">
+                <button id="valFilterButton" type="button" class="btn btn-primary">Valider</button>
+                <button id="valConstraintButton" type="button" class="btn btn-primary">Valider</button>
+                <button id="applyButton" type="button" class="btn btn-primary" data-dismiss="modal">Appliquer les filtres</button>
+                <button id="addButton"  onclick="goToAddFilters()" type="button" class="btn btn-primary">Ajouter un nouveau filtre</button>
+                <button id="backButton" onclick="goToFiltersMatrix()" type="button" class="btn btn-secondary">Retour</button>
+                <button id="quitButton" type="button" class="btn btn-secondary" data-dismiss="modal">Quitter</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+<!-- Fin Modal Filtres -->
+
+<!-- Debut Modal Export -->
+<div class="modal fade" id="exportModal">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+
+            <!-- Modal Header -->
+            <div class="modal-header">
+                <h4 class="modal-title">Exporter dans un fichier csv</h4>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+
+            <!-- Modal body -->
+            <div class="modal-body">
+
+                <!-- formulaire d'export -->
+                <form id="exportForm" method="post" enctype="multipart/form-data">
+                    <div class="row">
+                        <div class="col">
+                            <input type="text" class="form-control" id="outFileName" placeholder="Nom du fichier ( exemple: mon_fichier.csv )" name="outFileName" required>
+                        </div>
+                    </div>
+                    <div class="row" style="margin-top: 15px;">
+                        <div class="col">
+                            <input type="text" class="form-control" id="separator" placeholder="Séparateur des valeurs" name="separator" required>
+                        </div>
+                    </div>
+
+                    <div class="row" style="margin-top: 15px;">
+                        <div class="col">
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="didSearch" name="didSearch" disabled>
+                                <label class="custom-control-label" for="didSearch">Filtre de distance</label>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="withFilters" name="withFilters" disabled>
+                                <label class="custom-control-label" for="withFilters">Table des filtres</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row" style="margin-top: 15px;">
+                        <div class="col">
+                            <div class="alert alert-info">
+                                Active/désactive le <strong>filtre de distance</strong>  lors de l'export.
+                            </div>
+                        </div>
+
+                        <div class="col">
+                            <div class="alert alert-info">
+                                Active/désactive les <strong>filtres de la table</strong>  lors de l'export.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row" style="margin-top: 15px;">
+
+                        <div class="col">
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="addHeader" name="addHeader" checked>
+                                <label class="custom-control-label" for="addHeader">Ajouter un en-tête</label>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <!-- info -->
+                            <div class="alert alert-info">
+                                <strong> L'en-tête </strong>correspond aux noms des colonnes des fichiers sources.
+                            </div>
+                        </div>
+
+                    </div>
+                </form>
+
+            </div>
+
+            <!-- Modal footer -->
+            <div class="modal-footer">
+                <button type="button" id="exportButton" class="btn btn-primary" data-dismiss="modal">Exporter</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Quitter</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+<!-- Fin Modal Export-->
+
+<!-- script d'autocompletion -->
+<script src="eventHandlers/autoComplete.js"></script>
+<!-- Script d'importation -->
+<script src="model/import.js"></script>
+<!-- script de mise a jour de la carte -->
+<script src="model/printMap.js"></script>
+<!-- script de recherche -->
+<script src="eventHandlers/startSearch.js"></script>
+<!-- script de recherche -->
+<script src="model/searchPostalCode.js"></script>
+<!-- script de mise a jour des operateurs -->
+<script src="eventHandlers/onFilterChange.js"></script>
+<!-- Script contenant les donnees des filtres -->
+<script src="model/filtersData.js"></script>
+<!-- Script contenant les donnees cp <-> lat/lon -->
+<script src="model/cpToGps.js"></script>
+<!-- script d'initialisation de l'application -->
+<script src="model/initApplication.js"></script>
+<!-- Script JQuery debut d'importation -->
+<script src="eventHandlers/startImport.js"></script>
+<!-- Script JQuery debut d'exportation -->
+<script src="eventHandlers/startExport.js"></script>
+<!-- script de mise a jour des filtres -->
+<script src="model/filters.js"></script>
+<!-- script de gestion des boutons -->
+<script src="model/filtersModalButtons.js"></script>
+<!-- script de suppression de tables -->
+<script src="eventHandlers/resetApplication.js"></script>
+
+</body>
+</html>
