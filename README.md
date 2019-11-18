@@ -9,12 +9,19 @@ Pour lancer l'application veuillez lancer le fichier home.html dans un navigateu
 Cette application web codée majoritairement en Javascript est réalisée pour la Fondation de France. Elle permet essentiellement de gérer et visualiser des donateurs sur une carte.
 Elle permet plus précisément de:
 - Importer des donateurs sous forme de fichiers .csv.
+
 ![Import](screenshots/import.png?raw=true "Import")
+
 - Filtrer ces derniers sur des critères textuels, numériques et booléens.
+
 ![Filtres](screenshots/filtres.png?raw=true "Filtres")
+
 - Rechercher les donateurs proches d'une ville.
+
 ![Recherche](screenshots/recherche.png?raw=true "Recherche")
+
 - Exporter les donateurs sélectionnés sous format .csv.
+
 ![Export](screenshots/export.png?raw=true "Export")
 
 ## Dernières nouveautés
